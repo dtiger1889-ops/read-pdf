@@ -1,5 +1,7 @@
 # read-pdf
 
+![A fictional PDF beside its actual locally extracted text](assets/example-output.png)
+
 A Claude Code skill for reading PDFs at ~10-25x fewer tokens than letting the
 agent open them visually. Built for the "phone browser -> Print to PDF -> drop
 folder" capture flow (Reddit threads, articles), but it works on any PDF with a
