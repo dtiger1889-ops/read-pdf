@@ -45,9 +45,9 @@ letter-by-letter into a body line (ugly, still readable).
 
 ## Install
 
-1. Install poppler: `apt install poppler-utils` / `brew install poppler` /
-   (Windows) ships with Git for Windows' MSYS environment, or install a
-   poppler release.
+1. Install Poppler (`pdftotext` and `pdfinfo`) using the package appropriate to your
+   system. On Windows, use an installed Poppler release or its full executable path;
+   Git for Windows is not a guarantee that those tools are installed.
 2. Copy the `SKILL.md` into a `read-pdf/` folder under your skills directory
    (`~/.claude/skills/read-pdf/SKILL.md`).
 

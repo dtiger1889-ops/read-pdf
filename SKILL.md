@@ -1,25 +1,20 @@
 ---
 name: read-pdf
-description: Token-efficient reading of print-to-PDF files (mobile browser "Print to PDF" output from Firefox/Brave/Chrome, or any text-layer PDF where the CONTENT is the goal, not layout/forms). Use when the user asks to read a PDF, process a PDF drop folder, or any task requires reading a .pdf whose text is what matters. NOT for form-filling, signing, or visual layout work.
+description: Extract and read PDF text, especially browser print-to-PDF articles and PDF drop folders. Use when content matters; for forms, signatures, or layout inspection, use a workflow that renders the relevant pages.
 ---
 
 # read-pdf -- token-efficient PDF text extraction
 
-Mobile print-to-PDFs are 1-3MB files whose useful content is ~8-20KB of text.
-Extract the text locally; never push the PDF itself through the model.
+Extract text locally before loading a PDF into the model. Render specific pages only
+when the text layer is missing or extraction order obscures the content.
 
-## Never do these (measured 2026-08)
+## Extraction choices
 
-- **Never read a .pdf directly with the agent's file Read tool** -- it renders
-  pages as images, thousands of tokens per page for content pdftotext gets in
-  hundreds.
-- **Never call PDF metadata/annotation-dump tools on a browser-printed PDF** --
-  pages printed from link-dense sites (Reddit, news) carry hundreds of duplicate
-  link annotations from navigation chrome; one metadata call dumped ~50KB of
-  JSON for a 6-page file and still truncated (659 annotations encountered).
-- **Never use markdown-conversion tools as the first rung** -- deterministic
-  converters are fine as a fallback if pdftotext output looks scrambled, but
-  they are slower and gain nothing on prose.
+- Prefer `pdftotext` to file-reading tools that render every page as an image.
+- Avoid full annotation dumps: browser prints may contain many duplicate navigation
+  links. Inspect only the metadata or links the task needs.
+- Use a deterministic Markdown converter if text extraction loses structure the task
+  needs; ordinary prose rarely needs conversion.
 
 ## Procedure
 
@@ -31,39 +26,39 @@ Extract the text locally; never push the PDF itself through the model.
    ```
    pdftotext -q "file.pdf" scratch.txt && wc -c scratch.txt
    ```
-3. **Read by size:** under ~40KB, read the whole .txt. Bigger: grep for the
-   relevant sections or read with offsets. Blank tail pages (common in mobile
-   prints -- one sample had 16 blank pages after 7 content pages) cost nothing.
+3. **Read by size:** for manageable text, read the whole .txt. For larger files,
+   search relevant sections or read in chunks; continue to EOF when the task requires
+   the whole document. Blank pages need no extra processing.
 4. **Page ranges** when only part matters: `pdftotext -f 2 -l 5 ...`
 
-Requires poppler (`pdftotext`, `pdfinfo`). Linux: `apt install poppler-utils`;
-macOS: `brew install poppler`; Windows: ships with Git for Windows' MSYS
-environment, or install a poppler release and use the full path to the exe.
+Requires Poppler (`pdftotext`, `pdfinfo`). Check the current installation first. On
+Windows, use an installed Poppler release or its full executable path; do not assume
+Git for Windows includes it. The commands above use a Bash shell; in PowerShell,
+use `Select-String` and `(Get-Item scratch.txt).Length` for filtering and byte counts.
 
 ## Expected artifacts (not corruption -- read through them)
 
 | Producer (from pdfinfo) | Source | Artifacts |
 |---|---|---|
-| cairo (Mozilla Firefox) | Firefox / Firefox mobile | Repeated per-page header/footer: title, URL, `N of M`, timestamp. Bonus: the source URL is IN the header text. On Reddit, comment USERNAMES are dropped entirely (a bare replacement char before the timestamp) -- comment text survives but is unattributable; Chromium/Skia prints keep usernames. |
-| Skia/PDF (Chrome UA) | Brave / Chrome mobile | Occasional interleaved overlay text -- e.g. "Skip to main content" woven letter-by-letter into a body line. Meaning stays recoverable; don't re-extract. |
+| cairo (Mozilla Firefox) | Firefox / Firefox mobile | May repeat title, source URL, page number and timestamp in page headers. Some Reddit prints omit usernames; do not attribute comments when the PDF lacks them. |
+| Skia/PDF (Chrome UA) | Brave / Chrome mobile | May interleave overlay or navigation text with body lines. Continue if meaning is clear; inspect the affected page if it is not. |
 
 ## Reddit prints specifically
 
-- `Join the conversation` in the extracted text = start of the comments section.
-  Comments are usually part of what the user wants -- read them.
+- `Join the conversation` may mark the comments section. Read the comments when
+  relevant to the user's request.
 - **Collapsed comments are simply absent from the PDF.** No extraction fixes
   that; expansion has to happen in the browser before printing. If a big
   thread's text ends right after `Join the conversation`, say so -- don't guess
   at comments that aren't there.
-- Suggested-posts / "Related Answers" junk survives extraction but costs only a
-  few hundred tokens -- read past it rather than building precision trims.
+- Skip suggested posts, navigation and "Related Answers" when they are unrelated.
 - Duplicate prints happen (same article printed twice under different names).
   On multi-file batches, compare the first ~200 chars before reading both.
 
 ## Fallbacks (only if pdftotext output is near-empty for pages that visibly have content)
 
-Near-empty = under ~200 chars/page on a text article, meaning the page is
-raster (screenshot-style) or the text layer failed. Escalate in order:
+Very little text on a visibly full article page suggests a raster page or a failed text
+layer. Inspect that page to confirm, then escalate in order:
 1. A text-oriented PDF MCP tool with explicit extraction status, if available.
 2. OCR (tesseract) or page rendering on the SPECIFIC pages only -- image
    tokens, last resort.
@@ -73,11 +68,10 @@ raster (screenshot-style) or the text layer failed. Escalate in order:
 Firefox prints: the source URL is in the extracted page header, no extra work.
 For in-body links, use pypdf: collect unique `/A` -> `/URI` values across pages,
 then filter obvious site chrome (nav, login, notifications, recommended-post
-sidebars) before showing. Measured on one Reddit print: ~54 raw links -> ~30
-useful after the chrome filter.
+sidebars) before showing.
 
 ## After reading
 
-If the PDF came from a drop/inbox folder, move it to its long-term home once
-processed (project reference folder or a dated raw archive) so the inbox stays
-empty. The scratch .txt is disposable; archive the original PDF, not the txt.
+When processing a drop/inbox folder includes filing, move the original PDF to its
+long-term reference folder or dated archive after reading it. A read-only request
+does not authorize moving it. Keep the PDF as the source; the scratch .txt is disposable.
