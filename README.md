@@ -7,6 +7,12 @@ agent open them visually. Built for the "phone browser -> Print to PDF -> drop
 folder" capture flow (Reddit threads, articles), but it works on any PDF with a
 real text layer.
 
+## Start here
+
+This repo supplies `SKILL.md`; install it using the steps below rather than asking an agent to invent a new skill. The documented installation targets Claude Code. Another agent needs skill or instruction loading, local file access, and permission to execute the extraction tools; copying the file alone does not provide Poppler.
+
+After installing, ask: "Use read-pdf to extract text from the PDF I provide into a scratch file, then summarize it. If there is no usable text layer, tell me before escalating to OCR or rendering." The first result should be extracted text and a grounded answer. This workflow is for content reading; visual layout and form checks still need page inspection.
+
 ## The problem
 
 A mobile print-to-PDF is a 1-3MB file whose useful content is ~8-20KB of text.
@@ -57,6 +63,10 @@ letter-by-letter into a body line (ugly, still readable).
   (near-empty output) and escalates to OCR/rendering on specific pages only.
 - Collapsed Reddit comments are absent from the PDF itself; nothing recovers
   them after printing. Expand before you print.
+
+## Help
+
+For setup questions or errors, [open an issue](https://github.com/dtiger1889-ops/read-pdf/issues) with the relevant versions and a redacted error description.
 
 ## License
 
